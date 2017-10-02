@@ -123,7 +123,7 @@ class App extends Component {
         <div style={{display: 'flex'}}>
           <TreeComponent
             caption={<span>Expanded TreeComponent<br/><small>(click here to toggle expansion)</small></span>}
-            data={data}
+            initialData={data}
             // --
             onNodeExpand={this.state.onNodeExpand}
             onNodeShrink={this.state.onNodeShrink}
@@ -183,7 +183,6 @@ class App extends Component {
           <TreeComponent
             style={{width: '40%'}}
             caption='Collapsed Empty Tree (click here)'
-            data={emptyData}
             loadingAnimationDuration={3000}
             onNodeExpand={this.onTree2NodeClick}
             getUpdateDataCallback={cb => this.tree2UpdateData = cb}

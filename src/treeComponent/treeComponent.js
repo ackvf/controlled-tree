@@ -23,6 +23,10 @@ let seeRenders = false // set prop `seeRenders` to true when tweaking performanc
  *
  * ## Callbacks
  *
+ * - onNodeExpand
+ * - onNodeShrink
+ * - onLeafSelect
+ *
  * ### onNodeExpand(params)
  *  params = {
  *    type: "node" | "root"
@@ -43,8 +47,10 @@ let seeRenders = false // set prop `seeRenders` to true when tweaking performanc
  *  }
  *
  *
- *
  * ## Exposed control functions
+ *
+ * - getUpdateDataCallback
+ * - getReplaceDataCallback
  *
  * ### getUpdateDataCallback(updateDataAt)
  *  function updateDataAt(path, items)
@@ -55,13 +61,12 @@ let seeRenders = false // set prop `seeRenders` to true when tweaking performanc
  *  function replaceData(data)
  *    data: complete tree data
  *
- *
  */
 
 class TreeComponent extends React.PureComponent {
 
   state = {
-    data: this.props.data,
+    data: this.props.initialData,
     expanded: this.props.expanded,
     loadingAnimationDuration: this.props.loadingAnimationDuration
   }
@@ -122,8 +127,8 @@ class TreeComponent extends React.PureComponent {
   // *attached in constructor
 
   updateDataAt = (path, items) => {
-    let newData = {...this.state.data}
-    let expanded = !!(path.length && this.state.expanded) // avoid automatic tree expansion on initial data
+    let newData = {...this.state.data} // shallowly mutate first level to cause rerender
+    let expanded = !!(path.length && this.state.expanded) // set false to avoid automatic tree expansion on initial data
     mutateIn(newData, items, path)
     this.setState({
       data: newData,
@@ -131,16 +136,13 @@ class TreeComponent extends React.PureComponent {
     })
   }
 
-  replaceData = data => {
-    console.debug('replaceData', data)
-    this.setState({data})
-  }
+  replaceData = data => this.setState({data})
 
   // ------
 
   render() {
     const {caption, style, customStyleClass, className} = this.props
-    const {data: {items, id}, expanded} = this.state
+    const {data: {items}, expanded} = this.state
 
     /* render messages */ if (seeRenders) console.debug('%crender root  ', 'background: #668; color: #bada55', items)
 
@@ -170,10 +172,10 @@ TreeComponent.propTypes = {
   customStyleClass: PropTypes.string,
   className: PropTypes.string,
   style: PropTypes.object,
-  data: PropTypes.shape({
-    id: PropTypes.string.isRequired, // the root id
-    items: PropTypes.array.isRequired // can be empty array
-  }).isRequired,
+  initialData: PropTypes.shape({
+    id: PropTypes.string, // the root id of the data source
+    items: PropTypes.array // can be empty array
+  }),
   ...treeSettingsPropTypes,
   // --
   onLeafSelect: PropTypes.func,
@@ -191,7 +193,11 @@ TreeComponent.defaultProps = {
   customStyleClass: '',
   onLeafSelect: () => {},
   onNodeExpand: () => {},
-  onNodeShrink: () => {}
+  onNodeShrink: () => {},
+  initialData: {
+    id: 'root',
+    items: []
+  }
 }
 
 TreeComponent.childContextTypes = {
