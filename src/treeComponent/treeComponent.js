@@ -4,6 +4,7 @@ import PropTypes from 'prop-types'
 import './treeComponent.css'
 
 let seeRenders = false // set prop `seeRenders` to true when tweaking performance
+// TODO: This is global for all instances of tree component now, make it unique per instance maybe?
 
 /**
  * # TreeComponent
@@ -59,7 +60,7 @@ let seeRenders = false // set prop `seeRenders` to true when tweaking performanc
  *
  * ### getReplaceDataCallback(replaceData)
  *  function replaceData(data)
- *    data: complete tree data
+ *    data: complete tree data to replace the root node
  *
  */
 
@@ -75,8 +76,7 @@ class TreeComponent extends React.PureComponent {
 
   constructor(props) {
     super(props)
-
-    // Exposed control functions
+    // Attached exposed control functions
     if (this.props.getUpdateDataCallback) this.props.getUpdateDataCallback(this.updateDataAt)
     if (this.props.getReplaceDataCallback) this.props.getReplaceDataCallback(this.replaceData)
 
@@ -88,11 +88,11 @@ class TreeComponent extends React.PureComponent {
     loadingAnimationDuration: this.state.loadingAnimationDuration
   })
 
-  toggleExpand = () => this.setState({ expanded: !this.state.expanded }, this.requestInitialData)
+  toggleExpand = () => this.setState({ expanded: !this.state.expanded }, this.onRootClick)
 
-  requestInitialData = () => {
-    const {data, expanded} = this.state
-    if (!data.items.length) this.onNodeAction({type: 'root', path: [], expanded, items: 0, title: data.id})
+  onRootClick = () => {
+    const {data: {id, items}, expanded} = this.state
+    this.onNodeAction({type: 'root', path: [], id, expanded, items: items.length})
   }
 
   selectLeaf = domNode => {
@@ -115,10 +115,9 @@ class TreeComponent extends React.PureComponent {
 
     if (params.expanded) this.props.onNodeExpand(params)
     else this.props.onNodeShrink(params)
-
   }
 
-  // This object is passed to children
+  // This object is passed to children to abstract the callbacks (wrap references)
   childrenCallbacks = {
     onNodeAction: this.onNodeAction
   }
@@ -126,9 +125,9 @@ class TreeComponent extends React.PureComponent {
   // Exposed control functions ------------------------------------------------
   // *attached in constructor
 
-  updateDataAt = (path, items) => {
+  updateDataAt = (path, {items}) => {
     let newData = {...this.state.data} // shallowly mutate first level to cause rerender
-    let expanded = !!(path.length && this.state.expanded) // set false to avoid automatic tree expansion on initial data
+    let expanded = !!path.length && this.state.expanded // set false to avoid automatic tree expansion on initial data
     mutateIn(newData, items, path)
     this.setState({
       data: newData,
@@ -162,7 +161,7 @@ class TreeComponent extends React.PureComponent {
   }
 }
 
-const treeSettingsPropTypes = {
+const treeGlobalSettingsPropTypes = {
   expanded: PropTypes.bool,
   loadingAnimationDuration: PropTypes.number
 }
@@ -176,7 +175,7 @@ TreeComponent.propTypes = {
     id: PropTypes.string, // the root id of the data source
     items: PropTypes.array // can be empty array
   }),
-  ...treeSettingsPropTypes,
+  ...treeGlobalSettingsPropTypes,
   // --
   onLeafSelect: PropTypes.func,
   onNodeExpand: PropTypes.func,
@@ -201,7 +200,7 @@ TreeComponent.defaultProps = {
 }
 
 TreeComponent.childContextTypes = {
-  ...treeSettingsPropTypes
+  ...treeGlobalSettingsPropTypes
 }
 
 export default TreeComponent
@@ -209,28 +208,32 @@ export default TreeComponent
 
 // ----------------------------------------------------------------------------
 // ----------------------------------------------------------------------------
+
 function renderNode({type, id, ...rest}, path, callbacks) {
-  if (type === 'structure-group') return <Branch key={id} {...rest} path={[...path, id]} callbacks={callbacks}/>
-  if (type === 'page')            return <Leaf   key={id} {...rest} path={[...path, id]} callbacks={callbacks}/>
+  if (type === 'structure-group') return <Branch key={id} type='branch' id={id} {...rest} path={[...path, id]} callbacks={callbacks}/>
+  if (type === 'page')            return <Leaf   key={id} type='leaf'   id={id} {...rest} path={[...path, id]} callbacks={callbacks}/>
 }
 
-// Node.propTypes = {
-//   type: PropTypes.string.isRequired,
-//   id: PropTypes.string.isRequired,
-//   title: PropTypes.string.isRequired,
-//   items: PropTypes.array
-// }
+// renderNode(item, path, callbacks) 
+//   item = {
+//     type: PropTypes.string.isRequired,   // structure-group || page
+//     id: PropTypes.string.isRequired,
+//     title: PropTypes.string.isRequired,
+//     items: PropTypes.array               // if type === structure-group - this is very often undefined if async is used
+//     location: PropTypes.string           // if type === page
+//   }
 
 
 // ----------------------------------------------------------------------------
 class Branch extends React.PureComponent {
 
   state = {
-    expanded: this.context.expanded
+    expanded: this.context.expanded && !!this.props.items.length
   }
 
   componentWillReceiveProps(nextProps, nextContext) {
-    if (this.context.expanded !== nextContext.expanded) this.setState(
+    // if a global expansion/shrink is invoked by pressing the tree title, only expand branches that already have items data, shrink any branch
+    if (this.context.expanded !== nextContext.expanded && !!this.props.items.length) this.setState(
       {expanded: nextContext.expanded}, this.callOnNodeActionCallback
     )
   }
@@ -244,17 +247,17 @@ class Branch extends React.PureComponent {
     return false
   }
 
-  componentDidMount() {
-    // if tree is expanded by default and branch is empty, emit fake onClick event to request data from parent
-    if (this.state.expanded && !this.props.items.length) setTimeout(this.callOnNodeActionCallback, 0)
-  }
+  // componentDidMount() {
+  //   // if tree is expanded by default and branch is empty, emit fake onClick event to request data from parent
+  //   if (this.state.expanded && !this.props.items.length) setTimeout(this.callOnNodeActionCallback, 0)
+  // }
 
   handleOnClick = () => this.setState( {expanded: !this.state.expanded}, this.callOnNodeActionCallback )
 
   callOnNodeActionCallback = () => {
-    const {path, callbacks: {onNodeAction}, items, title} = this.props
+    const {callbacks: {onNodeAction}, type, path, id, items, title} = this.props
     const {expanded} = this.state
-    onNodeAction({type: 'branch', path, expanded, items: items.length, title}/* , e */)
+    onNodeAction({type, path, id, expanded, items: items.length, title}/* , e */)
   }
 
   render() {
@@ -282,17 +285,21 @@ Branch.propTypes = {
   callbacks: PropTypes.object.isRequired
 }
 
+Branch.defaultProps = {
+  items: []
+}
+
 Branch.contextTypes = {
   expanded: PropTypes.bool
 }
 
 
 // ----------------------------------------------------------------------------
-const Leaf = ({title, path, callbacks}) => {
+const Leaf = ({type, id, title, path, callbacks}) => {
   /* render messages */ if (seeRenders) console.debug('%crender leaf  ', 'background: #686; color: #bada55', title, path)
   return (
   <li className='leaf'>
-    <span onClick={e => callbacks.onNodeAction({type: 'leaf', path, title}, e)}>{title}</span>
+    <span onClick={e => callbacks.onNodeAction({type, path, id, title}, e)}>{title}</span>
   </li>
 )}
 
@@ -318,7 +325,7 @@ Loading.contextTypes = {
 // ----------------------------------------------------------------------------
 
 export function getIn(where, path = []) {
-  var segments = path instanceof Array ? [...path] : path.split('.')
+  var segments = path instanceof Array ? [...path] : path.split('/')
   var segment = segments.shift()
 
   if (segment === undefined) return where.items
@@ -329,13 +336,13 @@ export function getIn(where, path = []) {
 function mutateIn(where, what, path = []) {
   if (!(what instanceof Array)) console.error('Data must be in array')
   // Mutates the origin!
-  var segments = path instanceof Array ? [...path] : path.split('.')
+  var segments = path instanceof Array ? [...path] : path.split('/')
   var segment = segments.shift()
 
   if (segment === undefined) return where.items = what
   const deeper = where.items.find(i => i.id === segment)
   if (!deeper) return
 
-  deeper.items = [...deeper.items] // mutate the whole branch recursively to re-render the whole tree component
+  deeper.items = deeper.items ? [...deeper.items] : [] // mutate the reference to the container array to trigger a re-render
   mutateIn(deeper, what, segments)
 }

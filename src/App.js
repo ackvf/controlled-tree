@@ -4,7 +4,7 @@ import React, { Component } from 'react';
 import './develstyle.css'
 
 import TreeComponent, {getIn} from './treeComponent/treeComponent'
-import {data, asyncData, emptyData, emptyRootArray, dataWithRootOnly} from './treeComponent/exampleData'
+import {data, asyncData, emptyData, emptyRootArray, dataWithRootOnly, apiData} from './treeComponent/exampleData'
 let nextAsyncDataCounter = 0
 
 class App extends Component {
@@ -97,7 +97,7 @@ class App extends Component {
         },
         1000
       )
-      return null
+      return
     }
 
     const asyncDataKeys = Object.keys(asyncData)
@@ -108,6 +108,31 @@ class App extends Component {
       () => {
         console.debug('path, selectedKey', path, selectedKey)
         this.tree2UpdateData(path, asyncData[selectedKey])
+      },
+      3000
+    )
+
+  }
+
+  onTree2NodeClick2 = ({type, id, path, expanded, items, title}) => {
+    console.debug('onTree2NodeClick2', type, path, id, title, expanded, items, items.length)
+
+    if (type !== 'root' && type !== 'branch') return
+    if (!expanded) return
+    if (items) return
+
+    if (type === 'root') {
+      setTimeout(
+        () => this.tree2UpdateData(path, apiData.root),
+        1000
+      )
+      return
+    }
+
+
+    setTimeout(
+      () => {
+        if (apiData[id]) this.tree2UpdateData(path, apiData[id])
       },
       3000
     )
@@ -135,7 +160,7 @@ class App extends Component {
             expanded
             customStyleClass={this.state.className}
             style={{width: '40%'}}
-            seeRenders
+            // seeRenders
           />
 
           <div style={{width: '50%'}}>
@@ -182,12 +207,12 @@ class App extends Component {
 
           <TreeComponent
             style={{width: '40%'}}
+            // initialData={dataWithRootOnly}
             caption='Collapsed Empty Tree (click here)'
             loadingAnimationDuration={3000}
-            onNodeExpand={this.onTree2NodeClick}
+            onNodeExpand={this.onTree2NodeClick2}
             getUpdateDataCallback={cb => this.tree2UpdateData = cb}
             customStyleClass='elegant'
-            seeRenders
           />
 
         </div> {/* flex end */}
