@@ -164,8 +164,8 @@ class App extends Component {
           />
 
           <div style={{width: '50%'}}>
-            <p>{`<-- This is connected to the tree on left`}</p>
-            <i>watch re-renders in console on any data change</i>
+            <p>{`<-- The middle panel is connected to the tree on left.`}<br/>{`Also try TreeComponent on the right. -->`}</p>
+            <i>you can watch re-renders in console on any data change</i>
 
             <Margin/>
             <hr/>
@@ -185,8 +185,12 @@ class App extends Component {
             <button onClick={this.changeClass2}>native</button>
 
             <Margin/>
-
-            Expand any branch node to update content<br/>
+            <hr/>
+            To update content:<br/>
+            1. Expand any branch node<br/>
+            2. Chose example data below<br/>
+            3. Press button "save (replace)"<br/>
+            <br/>
             Update [items] at
             <input
               ref={r => this.input = r}
@@ -195,7 +199,7 @@ class App extends Component {
             />
             example data:<br/>
             {Object.keys(asyncData).map(key => <button key={key} onClick={() => this.changeTextareaValue(asyncData[key])}>{key}</button>)}
-            <br/>
+            <br/><br/>
             <button onClick={this.handleDataUpdate}>save (replace)</button>
 
             <textarea
